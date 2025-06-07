@@ -76,3 +76,54 @@ reference. The resulting trajectories are plotted, producing:
 
 along with some extra plots showing each of the components (wind, solar, and battery) in more
 detail.
+
+Users may also try switching off the solar or battery components of the hybrid plant by setting
+`include_solar` or `include_battery` to `False` in the hercules_runscript.py.
+
+(examples_battery_comparison)=
+## battery_control_comparison
+
+Small demonstration of the effect of different tunings in the {ref}`controllers_battery`.
+This example consists of a simulation run entirely in python which can be executed using
+```
+python standalone_simulation.py
+```
+
+The simulation runs a simple battery-only example (using a battery model provided by
+Hercules) where the battery is tasked with responding to a square wave power reference signal.
+When the battery gain `k_batt` is increased, the closed-loop system response time decreases, as
+shown here (produced by running the standalone_simulation.py script):
+![Results of varying gain](
+    graphics/battery-varying-gains.png
+)
+
+Moreover, a `clipping_threshold` sequence of `[0.1, 0.2, 0.8, 0.9] is used, indicating nullifying
+the reference below 10% state of charge (SOC) and above 90% SOC; and linearly ramping the reference
+between 10--20% and 80--90%. With this, providing a reference to the controller/battery system
+produces a different response based on the initial SOC:
+![Results of varying gain](
+    graphics/battery-soc-clipping.png
+)
+In particular, beginning near 50% SOC results in full reference-tracking behavior; beginning near
+85% SOC means that clipping is applied until the SOC leaves the clipped regions indicated in gray;
+and beginning near 15% SOC (and continuing to draw down the SOC) means that clipping becomes more
+significant as the simulation progresses.
+
+(examples_windhydrogen)=
+## wind_hydrogen_tracking
+Example of an off-grid wind-to-hydrogen hybrid energy system using the 
+{ref}`controllers_hydrogen` to
+track a hydrogen production rate reference. The plant comprises 9 NREL 5MW reference wind turbines
+(45 MW total wind capacity) and a hydrogen plant composed of 40 1-MW electrolyzer stacks.
+
+To run this example, navigate to the examples/wind_hydrogen_tracking folder and execute the shell
+script run_script.sh:
+```
+bash run_script.sh
+```
+
+This will run a short (10 minute) simulation of the plant and controller tracking a hydrogen
+production reference. The resulting trajectories are plotted, producing:
+![Results of wind_farm_power_tracking_florisstandin example](
+    graphics/wind-hydrogen-example-plot.png
+)

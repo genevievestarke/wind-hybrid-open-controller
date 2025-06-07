@@ -1,17 +1,3 @@
-# Copyright 2021 NREL
-
-# Licensed under the Apache License, Version 2.0 (the "License"); you may not
-# use this file except in compliance with the License. You may obtain a copy of
-# the License at http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations under
-# the License.
-
-# See https://nrel.github.io/wind-hybrid-open-controller for documentation
-
 import numpy as np
 
 from whoc.controllers.controller_base import ControllerBase
@@ -32,20 +18,27 @@ class WindFarmPowerDistributingController(ControllerBase):
         self.turbines = range(self.n_turbines)
 
         # Set initial conditions
-        self.controls_dict = {"power_setpoints": [POWER_SETPOINT_DEFAULT] * self.n_turbines}
+        #self.controls_dict = {"power_setpoints": [POWER_SETPOINT_DEFAULT] * self.n_turbines}
 
         # For startup
 
 
-    def compute_controls(self):
-        if "wind_power_reference" in self.measurements_dict:
-            farm_power_reference = self.measurements_dict["wind_power_reference"]
+    def compute_controls(self, measurements_dict):
+        if "power_reference" in measurements_dict:
+            farm_power_reference = measurements_dict["power_reference"]
         else:
             farm_power_reference = POWER_SETPOINT_DEFAULT
         
-        self.turbine_power_references(farm_power_reference=farm_power_reference)
+        return self.turbine_power_references(
+            farm_power_reference=farm_power_reference,
+            turbine_powers=measurements_dict["wind_turbine_powers"]
+        )
 
-    def turbine_power_references(self, farm_power_reference=POWER_SETPOINT_DEFAULT):
+    def turbine_power_references(
+            self,
+            farm_power_reference=POWER_SETPOINT_DEFAULT,
+            turbine_powers=None
+        ):
         """
         Compute turbine-level power setpoints based on farm-level power
         reference signal.
@@ -57,12 +50,12 @@ class WindFarmPowerDistributingController(ControllerBase):
 
         # Split farm power reference among turbines and set "no value" for yaw angles (Floris not
         # compatible with both power_setpoints and yaw_angles).
-        self.controls_dict = {
-            "power_setpoints": [farm_power_reference/self.n_turbines]*self.n_turbines,
+        controls_dict = {
+            "wind_power_setpoints": [farm_power_reference/self.n_turbines]*self.n_turbines,
             "yaw_angles": [-1000]*self.n_turbines
         }
 
-        return None
+        return controls_dict
 
 class WindFarmPowerTrackingController(WindFarmPowerDistributingController):
     """
@@ -90,7 +83,11 @@ class WindFarmPowerTrackingController(WindFarmPowerDistributingController):
         # self.ai_prev = [0.33]*self.n_turbines # TODO: different method for anti-windup?
         # self.n_saturated = 0 
 
-    def turbine_power_references(self, farm_power_reference=POWER_SETPOINT_DEFAULT):
+    def turbine_power_references(
+            self,
+            farm_power_reference=POWER_SETPOINT_DEFAULT,
+            turbine_powers=None
+        ):
         """
         Compute turbine-level power setpoints based on farm-level power
         reference signal.
@@ -100,8 +97,7 @@ class WindFarmPowerTrackingController(WindFarmPowerDistributingController):
         - None (sets self.controls_dict)
         """
         
-        turbine_current_powers = self.measurements_dict["turbine_powers"]
-        farm_current_power = np.sum(turbine_current_powers)
+        farm_current_power = np.sum(turbine_powers)
         farm_current_error = farm_power_reference - farm_current_power
 
         self.n_saturated = 0 # TODO: determine whether to use gain scheduling
@@ -126,12 +122,12 @@ class WindFarmPowerTrackingController(WindFarmPowerDistributingController):
         u = u_p #+ u_i
         delta_P_ref = u
 
-        turbine_power_setpoints = np.array(turbine_current_powers) + delta_P_ref
+        turbine_power_setpoints = np.array(turbine_powers) + delta_P_ref
         
         # set "no value" for yaw angles (Floris not compatible with both 
         # power_setpoints and yaw_angles)
-        self.controls_dict = {
-            "power_setpoints": list(turbine_power_setpoints),
+        controls_dict = {
+            "wind_power_setpoints": list(turbine_power_setpoints),
             "yaw_angles": [-1000]*self.n_turbines
         }
 
@@ -140,4 +136,4 @@ class WindFarmPowerTrackingController(WindFarmPowerDistributingController):
         # self.u_prev = u
         # self.u_i_prev = u_i
 
-        return None
+        return controls_dict
